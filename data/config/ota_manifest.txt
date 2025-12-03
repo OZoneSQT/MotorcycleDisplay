@@ -1,0 +1,2 @@
+version=1.0.1
+notes=Minor UI improvements and CAN decoder refinements.
