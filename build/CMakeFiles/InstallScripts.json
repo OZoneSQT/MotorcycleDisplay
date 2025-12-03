@@ -1,9 +1,0 @@
-{
-	"InstallScripts" : 
-	[
-		"C:/GitHub/MotorcycleDisplay/build/cmake_install.cmake",
-		"C:/GitHub/MotorcycleDisplay/build/src/cmake_install.cmake",
-		"C:/GitHub/MotorcycleDisplay/build/tests/cmake_install.cmake"
-	],
-	"Parallel" : false
-}

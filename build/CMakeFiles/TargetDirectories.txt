@@ -1,8 +1,0 @@
-C:/GitHub/MotorcycleDisplay/build/CMakeFiles/RUN_TESTS.dir
-C:/GitHub/MotorcycleDisplay/build/CMakeFiles/ALL_BUILD.dir
-C:/GitHub/MotorcycleDisplay/build/CMakeFiles/ZERO_CHECK.dir
-C:/GitHub/MotorcycleDisplay/build/src/CMakeFiles/motorcycle_core.dir
-C:/GitHub/MotorcycleDisplay/build/src/CMakeFiles/motorcycle_dashboard.dir
-C:/GitHub/MotorcycleDisplay/build/src/CMakeFiles/RUN_TESTS.dir
-C:/GitHub/MotorcycleDisplay/build/tests/CMakeFiles/motorcycle_tests.dir
-C:/GitHub/MotorcycleDisplay/build/tests/CMakeFiles/RUN_TESTS.dir
