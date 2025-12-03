@@ -25,7 +25,7 @@ function Write-WarnMessage {
 	Write-Warning $Message
 }
 
-function Ensure-Tool {
+function EnsureTool {
 	param(
 		[Parameter(Mandatory = $true)][string]$CommandName,
 		[Parameter(Mandatory = $true)][string]$WingetId,
@@ -88,9 +88,9 @@ Set-Location $repoRoot
 Write-Info "Repository root: $repoRoot"
 
 Write-Section "Ensuring toolchain"
-Ensure-Tool -CommandName 'python' -WingetId 'Python.Python.3.11' -FriendlyName 'Python 3.11'
-Ensure-Tool -CommandName 'cmake' -WingetId 'Kitware.CMake' -FriendlyName 'CMake'
-Ensure-Tool -CommandName 'ninja' -WingetId 'Ninja-build.Ninja' -FriendlyName 'Ninja'
+EnsureTool -CommandName 'python' -WingetId 'Python.Python.3.11' -FriendlyName 'Python 3.11'
+EnsureTool -CommandName 'cmake' -WingetId 'Kitware.CMake' -FriendlyName 'CMake'
+EnsureTool -CommandName 'ninja' -WingetId 'Ninja-build.Ninja' -FriendlyName 'Ninja'
 
 $python = Get-Command python -ErrorAction SilentlyContinue
 if (-not $python) {

@@ -9,21 +9,21 @@ import random
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, List, TYPE_CHECKING
+from typing import Any, Iterable, Iterator, List, Optional, TYPE_CHECKING
 
 try:
-    import can  # type: ignore[import-untyped]
+    import can  # type: ignore[import-not-found, import-untyped]
 except ImportError:  # pragma: no cover - optional dependency
     can = None
 
 if TYPE_CHECKING:
-    from can import Message as CanMessage, BusABC as CanBusABC
+    from can import BusABC as CanBusABC, Message as CanMessage
 else:
-    CanMessage = object  # type: ignore[assignment]
-    CanBusABC = object  # type: ignore[assignment]
+    CanBusABC = Any
+    CanMessage = Any
 
-Message = CanMessage
 BusABC = CanBusABC
+Message = CanMessage
 
 try:
     from rich.progress import track
@@ -38,6 +38,8 @@ CAN_IDS = {
     "abs": 0x103,
     "engine_temp": 0x104,
     "battery": 0x105,
+}
+
 @dataclass
 class SimulatedSample:
     timestamp: float
@@ -52,10 +54,10 @@ class SimulatedSample:
         frames: List[Message] = []
         if can is None:
             return frames
-        frames: List["can.Message"] = []
-        if can is None:
-            return frames
-        frames.append(can.Message(arbitration_id=CAN_IDS["speed"], data=[self.speed & 0xFF], is_extended_id=False))
+        # Build python-can Message frames (requires python-can installed)
+        frames.append(
+            can.Message(arbitration_id=CAN_IDS["speed"], data=[self.speed & 0xFF], is_extended_id=False)
+        )
         frames.append(
             can.Message(
                 arbitration_id=CAN_IDS["rpm"],
@@ -81,7 +83,7 @@ class SimulatedSample:
         ]
 
 
-def generate_samples(count: int) -> Iterable[SimulatedSample]:
+def generate_samples(count: int) -> Iterator[SimulatedSample]:
     for _ in range(count):
         yield SimulatedSample(
             timestamp=time.time(),
@@ -93,7 +95,6 @@ def generate_samples(count: int) -> Iterable[SimulatedSample]:
             battery_voltage=random.randint(120, 150),
         )
 
-
 def write_csv(path: Path, rows: Iterable[List[str]]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     new_file = not path.exists()
@@ -104,26 +105,33 @@ def write_csv(path: Path, rows: Iterable[List[str]]) -> None:
                 ["timestamp_ms", "speed_kmh", "rpm", "throttle_pct", "abs_active", "engine_temp_c", "battery_v"]
             )
         for row in rows:
-def send_frames(bus: BusABC, frames: Iterable[Message], sleep_s: float) -> None:
-    for frame in frames:
-        bus.send(frame, timeout=0.1)
-        time.sleep(sleep_s)
-    for frame in frames:
-        bus.send(frame, timeout=0.1)
-        time.sleep(sleep_s)
+            writer.writerow(row)
 
+def send_frames(bus: Optional[BusABC], frames: Iterable[Message], sleep_s: float) -> None:
+    if bus is None:
+        return
+    for frame in frames:
+        try:
+            bus.send(frame, timeout=0.1)
+        except Exception:
+            # Ignore send errors in the simulator
+            pass
+        if sleep_s > 0:
+            time.sleep(sleep_s)
 
 def run(duration: float, interval: float, csv_path: Path, use_bus: bool) -> None:
     iterations = int(duration / interval) if duration > 0 else 0
     iterator = track(range(iterations), description="Simulating") if track and iterations > 0 else range(iterations)
 
-    bus = None
+    bus: Optional[BusABC] = None
+    if use_bus and can is not None:
+        try:
+            bus = can.Bus()
+        except Exception:
+            print("Warning: failed to open CAN bus; proceeding without bus")
+
     for _ in iterator:
-        samples = generate_samples(1)
-        sample = next(samples)
-        write_csv(csv_path, [sample.to_row()])
-        if bus is not None:
-            send_frames(bus, sample.to_frames(), interval / 6 if interval > 0 else 0)
+        sample = next(generate_samples(1))
         write_csv(csv_path, [sample.to_row()])
         if bus is not None:
             send_frames(bus, sample.to_frames(), interval / 6 if interval > 0 else 0)
@@ -139,7 +147,8 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument("--duration", type=float, default=30.0, help="Simulation duration in seconds.")
     parser.add_argument("--interval", type=float, default=1.0, help="Interval between frames in seconds.")
     parser.add_argument(
-        "--csv", type=Path, default=Path("data/logs/simulator_log.csv"), help="Path to append CSV samples.")
+        "--csv", type=Path, default=Path("data/logs/simulator_log.csv"), help="Path to append CSV samples."
+    )
     parser.add_argument("--bus", action="store_true", help="Send frames on python-can virtual bus if available.")
     return parser.parse_args()
 
