@@ -49,7 +49,7 @@ CanIdConfigLoadResult loadCanIdConfigFromEnv(const std::string& sEnvFile,
         return {stConfig, vWarnings, false, mapEntries};
     }
 
-    // TODO: consider extracting a shared helper if more key mappings are added.
+    // Mapping of environment keys to configurable CAN identifiers.
     const std::unordered_map<std::string, std::uint32_t logic::use_cases::CanIdConfig::*> mapKeys{
         {"CAN_ID_SPEED", &logic::use_cases::CanIdConfig::u32Speed},
         {"CAN_ID_RPM", &logic::use_cases::CanIdConfig::u32Rpm},
