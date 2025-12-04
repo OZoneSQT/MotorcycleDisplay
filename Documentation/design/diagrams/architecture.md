@@ -92,7 +92,7 @@ sequenceDiagram
 ```mermaid
 graph TD
     MCU[ESP32 MCU]
-    Display[5" Touch Display]
+    Display[Touch Display]
     CANTransceiver[CAN Transceiver]
     Storage[microSD / Flash]
     WiFi[Wi-Fi OTA]
