@@ -16,7 +16,7 @@ public:
 
     void render(const logic::entities::VehicleData& stData,
                 const std::vector<logic::entities::AlertState>& vAlerts,
-                const std::optional<std::string>& optManualContent) override;
+                const std::optional<logic::entities::ManualPanel>& optManualPanel) override;
 
     void processInput(const std::function<void(const driver::TouchEvent&)>& fnHandler);
 

@@ -1,10 +1,10 @@
 #pragma once
 
 #include <optional>
-#include <string>
 #include <vector>
 
 #include "logic/entities/Alert.hpp"
+#include "logic/entities/Manual.hpp"
 #include "logic/entities/VehicleData.hpp"
 
 namespace driver {
@@ -15,7 +15,7 @@ public:
     virtual void initialize() = 0;
     virtual void drawDashboard(const logic::entities::VehicleData& stData,
                                const std::vector<logic::entities::AlertState>& vAlerts,
-                               const std::optional<std::string>& optManualContent) = 0;
+                               const std::optional<logic::entities::ManualPanel>& optManualPanel) = 0;
 };
 
 }  // namespace driver

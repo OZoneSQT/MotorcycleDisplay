@@ -1,6 +1,9 @@
 #include "simulation/DashboardDigitalTwin.hpp"
 
+#include <algorithm>
+#include <cmath>
 #include <cstddef>
+#include <iostream>
 #include <utility>
 
 namespace simulation {
@@ -49,17 +52,36 @@ const std::vector<logic::entities::AlertState>& CollectingAlertPort::vStates() c
     return m_vStates;
 }
 
-DashboardDigitalTwin::DashboardDigitalTwin()
-    : m_drCanDriver({500000U, 5U, 4U}),
-      m_ucCanProcessor(m_drCanDriver, m_stClock),
-      m_ucAlertEvaluator(m_stClock, m_stAlertPort),
-      m_ucDataLogger(m_stStorage, "logs"),
-      m_ucManualManager(m_stStorage),
-      m_uiView(m_drDisplayDriver, m_drTouchDriver),
-      m_ctrlDashboard(m_ucCanProcessor, m_ucAlertEvaluator, m_ucDataLogger, m_ucManualManager, m_uiView),
-      m_ctrlAlert(m_ucAlertEvaluator) {
-    m_drDisplayDriver.initialize();
-    m_ucDataLogger.bInitialize();
+DashboardDigitalTwin::DashboardDigitalTwin() : DashboardDigitalTwin(driver::loadCanIdConfigFromEnv("bus.env")) {}
+
+DashboardDigitalTwin::DashboardDigitalTwin(driver::CanIdConfigLoadResult stConfigResult)
+        : m_drCanDriver({500000U, 5U, 4U}),
+            m_stCanIds{stConfigResult.stConfig},
+            m_ucCanProcessor(m_drCanDriver, m_stClock, m_stCanIds),
+            m_ucAlertEvaluator(m_stClock, m_stAlertPort),
+            m_ucAuditLogger(m_stStorage, m_stClock, "logs"),
+            m_ucDataLogger(m_stStorage, "logs"),
+            m_ucManualManager(m_stStorage),
+            m_uiView(m_drDisplayDriver, m_drTouchDriver),
+            m_ctrlDashboard(m_ucCanProcessor, m_ucAlertEvaluator, m_ucDataLogger, m_ucManualManager, m_uiView),
+            m_ctrlAlert(m_ucAlertEvaluator) {
+        m_ucAuditLogger.bInitialize();
+        const auto stAppConfigResult = driver::loadAppConfigFromEnv(".env");
+        if (!stAppConfigResult.bFileFound) {
+            m_ucAuditLogger.bLogSoftwareError("TWIN_APP_CONFIG_NOT_FOUND", ".env not found; using defaults", "DashboardDigitalTwin");
+        }
+        for (const auto& sWarning : stAppConfigResult.vWarnings) {
+            m_ucAuditLogger.bLogSoftwareError("TWIN_APP_CONFIG_WARNING", sWarning, "DashboardDigitalTwin");
+        }
+        m_stAppMetadata = stAppConfigResult.stConfig;
+        for (const auto& sWarning : stConfigResult.vWarnings) {
+            std::cerr << "[TwinConfig] " << sWarning << std::endl;
+            m_ucAuditLogger.bLogSoftwareError("TWIN_CAN_ID_WARNING", sWarning, "DashboardDigitalTwin");
+        }
+        m_drDisplayDriver.initialize();
+        m_ucCanProcessor.setAuditLogger(&m_ucAuditLogger);
+        m_ucDataLogger.setAuditLogger(&m_ucAuditLogger);
+        m_ucDataLogger.bInitialize();
 }
 
 void DashboardDigitalTwin::vConfigureAlerts(std::vector<logic::entities::AlertConfig> vConfigs) {
@@ -73,10 +95,68 @@ void DashboardDigitalTwin::vSetManualContent(const std::string& sPath, const std
 
 void DashboardDigitalTwin::vEnqueueFrame(const logic::ports::RawCanFrame& stFrame) {
     m_drCanDriver.enqueueFrame(stFrame);
+    m_ucAuditLogger.bLogCanCommand(stFrame, "DashboardDigitalTwin::enqueue");
+}
+
+void DashboardDigitalTwin::vEnqueueTouch(const driver::TouchEvent& stEvent) {
+    m_drTouchDriver.enqueue(stEvent);
+}
+
+namespace {
+std::uint8_t u8ClampToByte(float fValue) {
+    const auto fClamped = std::clamp(fValue, 0.F, 255.F);
+    return static_cast<std::uint8_t>(std::lround(fClamped));
+}
+
+std::uint16_t u16ClampToWord(float fValue) {
+    const auto fClamped = std::clamp(fValue, 0.F, 65535.F);
+    return static_cast<std::uint16_t>(std::lround(fClamped));
+}
+}  // namespace
+
+void DashboardDigitalTwin::vApplyInputs(const TwinInputs& stInputs) {
+    m_u64LastInputTimestamp = m_stClock.nowMs();
+
+    const auto u8Speed = u8ClampToByte(stInputs.fSpeedKph);
+    vEnqueueFrame(stMakeFrame(m_stCanIds.u32Speed, m_u64LastInputTimestamp, {u8Speed}));
+
+    const auto u16Rpm = u16ClampToWord(stInputs.fEngineRpm);
+    vEnqueueFrame(stMakeFrame(m_stCanIds.u32Rpm, m_u64LastInputTimestamp,
+                              {static_cast<std::uint8_t>(u16Rpm & 0xFFU), static_cast<std::uint8_t>((u16Rpm >> 8U) & 0xFFU)}));
+
+    const auto u8Throttle = u8ClampToByte(stInputs.fThrottlePercent / 0.4F);
+    vEnqueueFrame(stMakeFrame(m_stCanIds.u32Throttle, m_u64LastInputTimestamp, {u8Throttle}));
+
+    vEnqueueFrame(stMakeFrame(m_stCanIds.u32Abs, m_u64LastInputTimestamp, {static_cast<std::uint8_t>(stInputs.bAbsActive ? 1U : 0U)}));
+
+    const auto u8Temp = u8ClampToByte(stInputs.fEngineTempC + 40.F);
+    vEnqueueFrame(stMakeFrame(m_stCanIds.u32EngineTemp, m_u64LastInputTimestamp, {u8Temp}));
+
+    const auto u8Battery = u8ClampToByte(stInputs.fBatteryVoltage * 10.F);
+    vEnqueueFrame(stMakeFrame(m_stCanIds.u32Battery, m_u64LastInputTimestamp, {u8Battery}));
 }
 
 void DashboardDigitalTwin::vProcessOnce() {
     m_ctrlDashboard.processFrame();
+}
+
+void DashboardDigitalTwin::vManualGoHome() {
+    m_ctrlDashboard.goHomeManual();
+    m_ctrlDashboard.refreshManualView();
+}
+
+void DashboardDigitalTwin::vManualGoBack() {
+    m_ctrlDashboard.goBackManual();
+    m_ctrlDashboard.refreshManualView();
+}
+
+void DashboardDigitalTwin::vManualOpenTopic(const std::string& sTopicId) {
+    m_ctrlDashboard.openManualTopic(sTopicId);
+    m_ctrlDashboard.refreshManualView();
+}
+
+void DashboardDigitalTwin::vManualRefresh() {
+    m_ctrlDashboard.refreshManualView();
 }
 
 void DashboardDigitalTwin::vSetClockNow(std::uint64_t u64NowMs) {

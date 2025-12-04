@@ -1,0 +1,79 @@
+---topic---
+path: root
+title: Motorcycle Dashboard Manual
+body:
+Welcome to the motorcycle dashboard manual.
+Use the menu to open a topic, then tap Back or Home to navigate.
+---end---
+
+---topic---
+path: root/getting-started
+title: Getting Started
+body:
+Power on the dashboard and wait for the boot sequence to complete.
+Tap a topic to learn more about each subsystem.
+---end---
+
+---topic---
+path: root/getting-started/display-overview
+title: Display Overview
+body:
+The home screen shows speed, RPM, throttle, ABS status, engine temperature, and battery voltage.
+Swipe left or press the Manual button to return to the main dashboard.
+---end---
+
+---topic---
+path: root/getting-started/manual-navigation
+title: Manual Navigation
+body:
+Tap a topic tile to open it.
+Use the Back button to return to the previous topic or Home to return to the manual menu.
+---end---
+
+---topic---
+path: root/safety
+title: Riding Safety
+body:
+Always wear protective gear and obey traffic regulations.
+Use Rain or Track modes only when conditions are appropriate.
+---end---
+
+---topic---
+path: root/safety/traction-control
+title: Traction Control
+body:
+Traction control limits wheel spin when sensors detect slip.
+Use the Back button to return to Safety topics.
+---end---
+
+---topic---
+path: root/safety/abs
+title: Anti-lock Braking
+body:
+ABS prevents wheel lock during hard braking.
+The dashboard alert flashes if the system detects a fault.
+---end---
+
+---topic---
+path: root/maintenance
+title: Maintenance
+body:
+Follow the service interval schedule to extend component lifespan.
+Log maintenance events using the `Maintenance` topic entries.
+---end---
+
+---topic---
+path: root/maintenance/oil
+title: Engine Oil
+body:
+Check engine oil every 1,000 km.
+Replace with the manufacturer-approved grade.
+---end---
+
+---topic---
+path: root/maintenance/battery
+title: Battery Care
+body:
+Inspect battery terminals monthly.
+Recharge the battery if voltage drops below 12.1 V.
+---end---

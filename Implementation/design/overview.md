@@ -21,7 +21,7 @@ Implementation/
 │   ├── logic/
 │   ├── networking/
 │   ├── ota/
-│   ├── simulation/
+│   ├── simulation/         # digital twin core + InteractiveTwinApp desktop harness
 │   └── ui/
 ├── tests/                  # unit/integration coverage
 │   ├── integration/

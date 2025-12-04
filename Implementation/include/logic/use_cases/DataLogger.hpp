@@ -9,6 +9,8 @@
 
 namespace logic::use_cases {
 
+class AuditLogger;
+
 class DataLogger {
 public:
     DataLogger(logic::ports::IStoragePort& rStoragePort, std::string sLogDirectory);
@@ -16,6 +18,7 @@ public:
     bool bInitialize();
     bool bLog(const logic::entities::VehicleData& stData);
     [[nodiscard]] const std::string& sLogFilePath() const noexcept;
+    void setAuditLogger(AuditLogger* pAuditLogger) noexcept;
 
 private:
     std::vector<std::string> vToCsvRow(const logic::entities::VehicleData& stData) const;
@@ -25,6 +28,7 @@ private:
     std::string m_sLogFilePath;
     std::mutex m_mtxLock;
     bool m_bHeaderWritten{false};
+    AuditLogger* m_pAuditLogger{nullptr};
 };
 
 }  // namespace logic::use_cases

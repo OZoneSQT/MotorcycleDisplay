@@ -3,14 +3,9 @@
 #include <array>
 #include <cmath>
 
-namespace {
-constexpr std::uint32_t kSpeedFrameId = 0x100U;
-constexpr std::uint32_t kRpmFrameId = 0x101U;
-constexpr std::uint32_t kThrottleFrameId = 0x102U;
-constexpr std::uint32_t kAbsFrameId = 0x103U;
-constexpr std::uint32_t kEngineTempFrameId = 0x104U;
-constexpr std::uint32_t kBatteryFrameId = 0x105U;
+#include "logic/use_cases/AuditLogger.hpp"
 
+namespace {
 constexpr float kInvalidValue = -1.F;
 
 float decodeUnsigned(const logic::ports::RawCanFrame& stFrame, std::uint8_t u8Idx, float fScale) {
@@ -24,8 +19,10 @@ float decodeUnsigned(const logic::ports::RawCanFrame& stFrame, std::uint8_t u8Id
 
 namespace logic::use_cases {
 
-CanDataProcessor::CanDataProcessor(logic::ports::ICanPort& rCanPort, const logic::ports::IClockPort& rClockPort)
-    : m_rCanPort{rCanPort}, m_rClockPort{rClockPort} {}
+CanDataProcessor::CanDataProcessor(logic::ports::ICanPort& rCanPort,
+                                   const logic::ports::IClockPort& rClockPort,
+                                   logic::use_cases::CanIdConfig stCanIds)
+    : m_rCanPort{rCanPort}, m_rClockPort{rClockPort}, m_stCanIds{stCanIds} {}
 
 std::optional<logic::entities::VehicleData> CanDataProcessor::optPollOnce() {
     if (!m_bInitialized) {
@@ -44,6 +41,9 @@ std::optional<logic::entities::VehicleData> CanDataProcessor::optPollOnce() {
     bool bUpdated = false;
 
     auto fnProcess = [&](const logic::ports::RawCanFrame& stRawFrame) {
+        if (m_pAuditLogger != nullptr) {
+            m_pAuditLogger->bLogCanCommand(stRawFrame, "CanDataProcessor");
+        }
         if (m_fnCustomDecoder) {
             auto optDecoded = m_fnCustomDecoder(stRawFrame);
             if (optDecoded.has_value()) {
@@ -80,50 +80,43 @@ void CanDataProcessor::setCustomDecoder(Decoder fnDecoder) {
     m_fnCustomDecoder = std::move(fnDecoder);
 }
 
+void CanDataProcessor::setAuditLogger(AuditLogger* pAuditLogger) noexcept {
+    m_pAuditLogger = pAuditLogger;
+}
+
 bool CanDataProcessor::bDecodeKnownFrame(const logic::ports::RawCanFrame& stFrame,
                                          logic::entities::VehicleData& stSnapshot) const {
-    switch (stFrame.u32Id) {
-        case kSpeedFrameId: {
-            const float fSpeed = decodeUnsigned(stFrame, 0U, 1.F);
-            if (fSpeed >= 0.F) {
-                stSnapshot.fSpeedKph = fSpeed;
-            }
-            break;
+    const auto u32Id = stFrame.u32Id;
+
+    if (u32Id == m_stCanIds.u32Speed) {
+        const float fSpeed = decodeUnsigned(stFrame, 0U, 1.F);
+        if (fSpeed >= 0.F) {
+            stSnapshot.fSpeedKph = fSpeed;
         }
-        case kRpmFrameId: {
-            if (stFrame.u8Dlc >= 2U) {
-                const auto u16Raw = static_cast<std::uint16_t>((stFrame.au8Data[1] << 8U) | stFrame.au8Data[0]);
-                stSnapshot.fEngineRpm = static_cast<float>(u16Raw);
-            }
-            break;
+    } else if (u32Id == m_stCanIds.u32Rpm) {
+        if (stFrame.u8Dlc >= 2U) {
+            const auto u16Raw = static_cast<std::uint16_t>((stFrame.au8Data[1] << 8U) | stFrame.au8Data[0]);
+            stSnapshot.fEngineRpm = static_cast<float>(u16Raw);
         }
-        case kThrottleFrameId: {
-            const float fThrottle = decodeUnsigned(stFrame, 0U, 0.4F);
-            if (fThrottle >= 0.F && fThrottle <= 100.F) {
-                stSnapshot.fThrottlePercent = fThrottle;
-            }
-            break;
+    } else if (u32Id == m_stCanIds.u32Throttle) {
+        const float fThrottle = decodeUnsigned(stFrame, 0U, 0.4F);
+        if (fThrottle >= 0.F && fThrottle <= 100.F) {
+            stSnapshot.fThrottlePercent = fThrottle;
         }
-        case kAbsFrameId: {
-            stSnapshot.bAbsActive = stFrame.u8Dlc > 0U && stFrame.au8Data[0] != 0U;
-            break;
+    } else if (u32Id == m_stCanIds.u32Abs) {
+        stSnapshot.bAbsActive = stFrame.u8Dlc > 0U && stFrame.au8Data[0] != 0U;
+    } else if (u32Id == m_stCanIds.u32EngineTemp) {
+        const float fTemp = decodeUnsigned(stFrame, 0U, 1.F) - 40.F;
+        if (!std::isnan(fTemp)) {
+            stSnapshot.fEngineTempC = fTemp;
         }
-        case kEngineTempFrameId: {
-            const float fTemp = decodeUnsigned(stFrame, 0U, 1.F) - 40.F;
-            if (!std::isnan(fTemp)) {
-                stSnapshot.fEngineTempC = fTemp;
-            }
-            break;
+    } else if (u32Id == m_stCanIds.u32Battery) {
+        const float fVoltage = decodeUnsigned(stFrame, 0U, 0.1F);
+        if (fVoltage >= 0.F) {
+            stSnapshot.fBatteryVoltage = fVoltage;
         }
-        case kBatteryFrameId: {
-            const float fVoltage = decodeUnsigned(stFrame, 0U, 0.1F);
-            if (fVoltage >= 0.F) {
-                stSnapshot.fBatteryVoltage = fVoltage;
-            }
-            break;
-        }
-        default:
-            return false;
+    } else {
+        return false;
     }
 
     return stSnapshot.bIsValid();

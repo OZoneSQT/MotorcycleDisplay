@@ -11,7 +11,7 @@ public:
     void initialize() override;
     void drawDashboard(const logic::entities::VehicleData& stData,
                        const std::vector<logic::entities::AlertState>& vAlerts,
-                       const std::optional<std::string>& optManualContent) override;
+                       const std::optional<logic::entities::ManualPanel>& optManualPanel) override;
 
 private:
     std::mutex m_mutex;

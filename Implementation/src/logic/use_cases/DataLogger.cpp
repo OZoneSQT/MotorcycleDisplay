@@ -4,6 +4,8 @@
 #include <iomanip>
 #include <sstream>
 
+#include "logic/use_cases/AuditLogger.hpp"
+
 namespace {
 constexpr const char* kDefaultFilename = "vehicle_log.csv";
 
@@ -24,6 +26,9 @@ DataLogger::DataLogger(logic::ports::IStoragePort& rStoragePort, std::string sLo
 
 bool DataLogger::bInitialize() {
     if (!m_rStoragePort.ensureDirectory(m_sLogDirectory)) {
+        if (m_pAuditLogger != nullptr) {
+            m_pAuditLogger->bLogSoftwareError("DATA_LOGGER_INIT_FAILED", "Failed to ensure log directory", "DataLogger");
+        }
         return false;
     }
     m_sLogFilePath = joinPath(m_sLogDirectory, kDefaultFilename);
@@ -41,12 +46,21 @@ bool DataLogger::bLog(const logic::entities::VehicleData& stData) {
         const std::vector<std::string> vHeader{
             "timestamp_ms", "speed_kph", "rpm", "throttle_percent", "abs_active", "engine_temp_c", "battery_voltage"};
         if (!m_rStoragePort.appendCsv(m_sLogFilePath, vHeader)) {
+            if (m_pAuditLogger != nullptr) {
+                m_pAuditLogger->bLogSoftwareError("DATA_LOGGER_HEADER_FAILED", "Failed to write data log header", "DataLogger");
+            }
             return false;
         }
         m_bHeaderWritten = true;
     }
 
-    return m_rStoragePort.appendCsv(m_sLogFilePath, vToCsvRow(stData));
+    if (!m_rStoragePort.appendCsv(m_sLogFilePath, vToCsvRow(stData))) {
+        if (m_pAuditLogger != nullptr) {
+            m_pAuditLogger->bLogSoftwareError("DATA_LOGGER_WRITE_FAILED", "Failed to append data log row", "DataLogger");
+        }
+        return false;
+    }
+    return true;
 }
 
 const std::string& DataLogger::sLogFilePath() const noexcept {
@@ -71,6 +85,10 @@ std::vector<std::string> DataLogger::vToCsvRow(const logic::entities::VehicleDat
     vRow.emplace_back(fnToString(stData.fEngineTempC));
     vRow.emplace_back(fnToString(stData.fBatteryVoltage));
     return vRow;
+}
+
+void DataLogger::setAuditLogger(AuditLogger* pAuditLogger) noexcept {
+    m_pAuditLogger = pAuditLogger;
 }
 
 }  // namespace logic::use_cases

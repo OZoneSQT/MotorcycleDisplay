@@ -3,6 +3,7 @@
 #include <optional>
 #include <string>
 
+#include "logic/entities/Manual.hpp"
 #include "logic/ports/IStoragePort.hpp"
 
 namespace logic::use_cases {
@@ -12,7 +13,7 @@ public:
     explicit UserManualManager(logic::ports::IStoragePort& rStoragePort);
 
     bool bSetManualPath(std::string sPath);
-    std::optional<std::string> optLoadManual() const;
+    std::optional<logic::entities::ManualNode> optLoadManualTree() const;
 
 private:
     logic::ports::IStoragePort& m_rStoragePort;

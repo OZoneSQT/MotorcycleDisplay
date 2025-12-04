@@ -1,9 +1,15 @@
 set(TEST_SOURCES
     unit/AlertEvaluatorTests.cpp
     unit/DataLoggerTests.cpp
+    unit/CanIdConfigLoaderTests.cpp
+    unit/AuditLoggerTests.cpp
+    unit/AppConfigLoaderTests.cpp
+    unit/UserManualManagerTests.cpp
     integration/DashboardDigitalTwinTests.cpp
     unit/TestRunner.cpp
 )
+
+file(TO_CMAKE_PATH "${CMAKE_SOURCE_DIR}" PROJECT_SOURCE_DIR_CMAKE)
 
 add_executable(motorcycle_tests ${TEST_SOURCES})
 
@@ -20,6 +26,11 @@ target_compile_options(motorcycle_tests
     PRIVATE
     $<$<CXX_COMPILER_ID:MSVC>:/W4 /permissive- /EHsc>
         $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-Wall -Wextra -Wpedantic>
+)
+
+target_compile_definitions(motorcycle_tests
+    PRIVATE
+        PROJECT_SOURCE_DIR="${PROJECT_SOURCE_DIR_CMAKE}"
 )
 
 add_test(NAME motorcycle_tests COMMAND motorcycle_tests)

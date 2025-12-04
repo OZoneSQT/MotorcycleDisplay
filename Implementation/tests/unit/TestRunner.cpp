@@ -3,13 +3,21 @@
 
 void runAlertEvaluatorTests();
 void runDataLoggerTests();
+void runCanIdConfigLoaderTests();
 void runDashboardDigitalTwinTests();
+void runAuditLoggerTests();
+void runUserManualManagerTests();
+void runAppConfigLoaderTests();
 
 int main() {
     try {
         runAlertEvaluatorTests();
         runDataLoggerTests();
+        runCanIdConfigLoaderTests();
         runDashboardDigitalTwinTests();
+        runAuditLoggerTests();
+        runUserManualManagerTests();
+        runAppConfigLoaderTests();
     } catch (const std::exception& ex) {
         std::cerr << "Test failure: " << ex.what() << std::endl;
         return 1;

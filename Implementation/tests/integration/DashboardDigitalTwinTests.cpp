@@ -22,16 +22,32 @@ logic::entities::AlertConfig stMakeTempAlert(float fLimit) {
 void runDashboardDigitalTwinTests() {
     simulation::DashboardDigitalTwin twin;
     twin.vSetClockNow(1000ULL);
-    twin.vSetManualContent("manual/dashboard_manual.md", "Line 1\nLine 2");
+    const std::string sManualContent =
+        "---topic---\n"
+        "path: root\n"
+        "title: Dashboard Manual\n"
+        "body:\n"
+        "Welcome to the Motorcycle Dashboard manual.\n"
+        "Use the topics below to navigate.\n"
+        "---end---\n"
+        "---topic---\n"
+        "path: root/safety\n"
+        "title: Riding Safety\n"
+        "body:\n"
+        "Always wear protective gear.\n"
+        "---end---\n";
+    twin.vSetManualContent("manual/dashboard_manual.menu", sManualContent);
     twin.vConfigureAlerts({stMakeSpeedAlert(70.F), stMakeTempAlert(95.F)});
 
-    twin.vEnqueueFrame(simulation::stMakeFrame(0x100U, 1000ULL, {80U}));
-    twin.vEnqueueFrame(simulation::stMakeFrame(0x101U, 1000ULL, {0x20U, 0x0FU}));
-    twin.vEnqueueFrame(simulation::stMakeFrame(0x102U, 1000ULL, {125U}));
-    twin.vEnqueueFrame(simulation::stMakeFrame(0x103U, 1000ULL, {1U}));
-    twin.vEnqueueFrame(simulation::stMakeFrame(0x104U, 1000ULL, {140U}));
-    twin.vEnqueueFrame(simulation::stMakeFrame(0x105U, 1000ULL, {125U}));
+    simulation::DashboardDigitalTwin::TwinInputs stInputs{};
+    stInputs.fSpeedKph = 80.F;
+    stInputs.fEngineRpm = 3872.F;
+    stInputs.fThrottlePercent = 50.F;
+    stInputs.bAbsActive = true;
+    stInputs.fEngineTempC = 100.F;
+    stInputs.fBatteryVoltage = 12.5F;
 
+    twin.vApplyInputs(stInputs);
     twin.vProcessOnce();
 
     const auto& display = twin.rDisplayDriver();
@@ -59,5 +75,10 @@ void runDashboardDigitalTwinTests() {
 
     const auto optManual = display.optLastManual();
     assert(optManual.has_value());
-    assert(optManual.value().find("Line 1") != std::string::npos);
+    assert(optManual->sTitle == "Dashboard Manual");
+    assert(optManual->bCanGoHome == false);
+    assert(optManual->bCanGoBack == false);
+    assert(optManual->vChildren.size() == 1U);
+    assert(optManual->vChildren.front().sId == "safety");
+    assert(optManual->vChildren.front().sTitle == "Riding Safety");
 }

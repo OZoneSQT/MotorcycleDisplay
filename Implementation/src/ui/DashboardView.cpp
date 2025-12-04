@@ -7,8 +7,8 @@ DashboardView::DashboardView(driver::DisplayDriver& rDisplayDriver, driver::Touc
 
 void DashboardView::render(const logic::entities::VehicleData& stData,
                            const std::vector<logic::entities::AlertState>& vAlerts,
-                           const std::optional<std::string>& optManualContent) {
-    m_rDisplayDriver.drawDashboard(stData, vAlerts, optManualContent);
+                           const std::optional<logic::entities::ManualPanel>& optManualPanel) {
+    m_rDisplayDriver.drawDashboard(stData, vAlerts, optManualPanel);
 }
 
 void DashboardView::processInput(const std::function<void(const driver::TouchEvent&)>& fnHandler) {

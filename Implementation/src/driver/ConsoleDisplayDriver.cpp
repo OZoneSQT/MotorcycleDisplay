@@ -11,7 +11,7 @@ void ConsoleDisplayDriver::initialize() {
 
 void ConsoleDisplayDriver::drawDashboard(const logic::entities::VehicleData& stData,
                                          const std::vector<logic::entities::AlertState>& vAlerts,
-                                         const std::optional<std::string>& optManualContent) {
+                                         const std::optional<logic::entities::ManualPanel>& optManualPanel) {
     std::scoped_lock guard{m_mutex};
     std::cout << "\n=== Dashboard ===\n";
     std::cout << std::fixed << std::setprecision(1);
@@ -42,8 +42,22 @@ void ConsoleDisplayDriver::drawDashboard(const logic::entities::VehicleData& stD
         std::cout << " - [" << severityToString(stAlert.stMetadata.eSeverity) << "] " << stAlert.stMetadata.sMessage
                   << "\n";
     }
-    if (optManualContent.has_value()) {
-        std::cout << "\n[User Manual]\n" << optManualContent.value() << "\n";
+    if (optManualPanel.has_value()) {
+        const auto& stPanel = optManualPanel.value();
+        std::cout << "\n[User Manual]\n";
+        std::cout << stPanel.sTitle << "\n";
+        if (!stPanel.sBody.empty()) {
+            std::cout << stPanel.sBody << "\n";
+        }
+        if (!stPanel.vChildren.empty()) {
+            std::cout << "\nTopics:\n";
+            std::size_t uIndex = 1U;
+            for (const auto& stItem : stPanel.vChildren) {
+                std::cout << " " << uIndex++ << ". [" << stItem.sId << "] " << stItem.sTitle << "\n";
+            }
+        }
+        std::cout << "\n[Navigation] Home=" << (stPanel.bCanGoHome ? "Yes" : "No")
+                  << " | Back=" << (stPanel.bCanGoBack ? "Yes" : "No") << "\n";
     }
     std::cout << std::flush;
 }

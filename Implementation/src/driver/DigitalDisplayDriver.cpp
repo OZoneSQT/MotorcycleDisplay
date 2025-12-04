@@ -2,6 +2,8 @@
 
 #include <algorithm>
 
+#include "logic/entities/Manual.hpp"
+
 namespace driver {
 
 void DigitalDisplayDriver::initialize() {
@@ -9,12 +11,12 @@ void DigitalDisplayDriver::initialize() {
     m_bInitialized = true;
     m_bHasRendered = false;
     m_vAlerts.clear();
-    m_optManualContent.reset();
+    m_optManualPanel.reset();
 }
 
 void DigitalDisplayDriver::drawDashboard(const logic::entities::VehicleData& stData,
                                          const std::vector<logic::entities::AlertState>& vAlerts,
-                                         const std::optional<std::string>& optManualContent) {
+                                         const std::optional<logic::entities::ManualPanel>& optManualPanel) {
     std::scoped_lock guard{m_mtxMutex};
     if (!m_bInitialized) {
         return;
@@ -22,7 +24,7 @@ void DigitalDisplayDriver::drawDashboard(const logic::entities::VehicleData& stD
 
     m_stLastData = stData;
     m_vAlerts = vAlerts;
-    m_optManualContent = optManualContent;
+    m_optManualPanel = optManualPanel;
     m_bHasRendered = true;
 }
 
@@ -46,9 +48,9 @@ std::vector<logic::entities::AlertState> DigitalDisplayDriver::vLastAlerts() con
     return m_vAlerts;
 }
 
-std::optional<std::string> DigitalDisplayDriver::optLastManual() const {
+std::optional<logic::entities::ManualPanel> DigitalDisplayDriver::optLastManual() const {
     std::scoped_lock guard{m_mtxMutex};
-    return m_optManualContent;
+    return m_optManualPanel;
 }
 
 }  // namespace driver

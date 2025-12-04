@@ -4,11 +4,12 @@ An ESP32-powered, touch-enabled motorcycle dashboard that decodes CAN bus teleme
 
 ## Features
 - Real-time decoding of speed, RPM, throttle, ABS status, engine temperature, and battery voltage from the CAN bus.
-- Touch-driven dashboard UI with quick access to alerts and a built-in user manual.
+- Touch-driven dashboard UI with quick access to alerts and a menu-driven user manual (Home/Back navigation).
 - Configurable alert engine with severity levels and CSV-backed logging for diagnostics.
 - OTA update workflow driven by manifest files for rapid feature delivery.
 - Python-based CAN simulator for development without a live motorcycle connection.
 - Digital twin harness with an in-memory display driver for deterministic end-to-end tests on the host PC.
+- Desktop interactive simulator with keyboard shortcuts and a control panel window for telemetry tuning, alert monitoring, and touch events.
 ## Hardware Requirements
 - ESP32 module with dual-core support and Wi-Fi connectivity (e.g., ESP32-WROVER).
 - 5" capacitive touch display (SPI or RGB interface) compatible with ESP32.
@@ -56,6 +57,24 @@ An ESP32-powered, touch-enabled motorcycle dashboard that decodes CAN bus teleme
 	- Mirror the `Implementation/src` layout inside an ESP-IDF component or extend the existing CMake files.
 	- Use `idf.py menuconfig` to set CAN, display, storage, and OTA parameters, ensuring secrets remain outside source control.
 
+## Application Metadata (.env)
+`Implementation/.env` centralizes runtime metadata that the application prints at boot and records through the audit log. Add or override keys using `key=value` pairs:
+
+```dotenv
+# Optional; defaults are applied when keys are missing
+version=1.0.0
+build_id=build-2025-12-04
+app_name=Motorcycle Dashboard
+copyright=2025 OZoneSQT
+contact_info=support@motorcycledashboard.example
+ota_source_link=https://updates.motorcycle.example/ota_manifest.json
+debug=debug_false  # use debug_true to enable verbose mode
+```
+
+Invalid or malformed entries fall back to defaults and are reported in `Implementation/data/logs/audit_log.csv`.
+
+Run `python Implementation/tools/util/verify_env_sync.py` after editing metadata to confirm the compiled defaults in `AppMetadata.hpp` match the `.env` overrides. Pass `--update-header` to rewrite the header automatically when the `.env` file becomes the new source of truth.
+
 ## Usage Examples
 - **Run desktop simulator**
   ```powershell
@@ -63,12 +82,34 @@ An ESP32-powered, touch-enabled motorcycle dashboard that decodes CAN bus teleme
 	cmake --build build --target motorcycle_dashboard
 	.\build\motorcycle_dashboard.exe
   ```
+  ```powershell
+	.\Implementation\Setup.ps1 -SkipVenv
+	cmake --build build --target motorcycle_twin_simulator
+	.\build\motorcycle_twin_simulator.exe
+  ```
+  The simulator opens a dashboard window plus a `Twin Control Panel` window where you can edit telemetry fields, trigger touch events, and watch alerts update live. Toggle the panel with the `P` key if you close or hide it.
+	Manual navigation example: press `1`-`9` to open the corresponding child topic, `B` to go back, and `H` to return to the manual home menu.
+	Resize the control panel to reveal the CAN tools section, then enter a CAN identifier (hex or decimal) and up to eight hex bytes to enqueue custom frames into the twin.
+- **Helper scripts**
+  ```powershell
+	# Full project build (dashboard, tests, simulator)
+	pwsh Implementation\tools\util\build_project.ps1 -Configuration Release
+
+	# Build-and-run helper for the interactive simulator (omit -NoBuild to rebuild first)
+	pwsh Implementation\tools\util\run_twin_simulator.ps1 -Configuration Debug
+
+	# Build (optional) and execute the full CTest suite
+	pwsh Implementation\tools\util\run_tests.ps1 -Configuration Debug
+  ```
 - **Simulate CAN traffic**
   ```powershell
 	python Implementation/tools/util/can_simulator.py --duration 120 --interval 0.5 --csv Implementation/data/logs/simulator_log.csv
   ```
 - **View logs**: Inspect `Implementation/data/logs/vehicle_log.csv` for live data or the simulator log for synthetic data.
-- **Display manual**: Swipe right on the dashboard (or inspect `Implementation/data/manual/dashboard_manual.md`).
+- **View logs**: Inspect `Implementation/data/logs/vehicle_log.csv` for live data or the simulator log for synthetic data.
+- **Audit trail**: Review `Implementation/data/logs/audit_log.csv` for CAN command traceability and software error codes.
+- **Display manual**: Swipe right on the dashboard (or inspect `Implementation/data/manual/dashboard_manual.menu`).
+- **Tweak CAN IDs**: Edit `Implementation/bus.env` to override CAN identifiers (e.g., `CAN_ID_SPEED=0x200`). Leave values untouched to stick with the compiled defaults.
 
 ## Digital Twin and Simulator Workflow
 
@@ -79,7 +120,7 @@ An ESP32-powered, touch-enabled motorcycle dashboard that decodes CAN bus teleme
 	ctest --test-dir build --tests-regex motorcycle_tests --output-on-failure
 	```
 	The `DashboardDigitalTwinTests` feed synthetic CAN frames into the `simulation::DashboardDigitalTwin`, exercising alert evaluation, CSV logging, and the `DigitalDisplayDriver` snapshot.
-- **Experiment interactively**: Instantiate `simulation::DashboardDigitalTwin` in a host application, enqueue frames with `simulation::stMakeFrame`, and inspect `DigitalDisplayDriver::stLastData()` or `vLastAlerts()` for visual verification without hardware.
+- **Experiment interactively**: Start `motorcycle_twin_simulator`, then use the control panel window (or keyboard shortcuts) to change telemetry, toggle ABS, enqueue touch taps, and observe alert/activity updates without hardware.
 - **Simulate CAN on the command line**: Combine the Python CAN simulator with the digital twin to prototype complex ride scenarios before deploying to the ESP32.
 
 ## Testing Instructions
@@ -107,6 +148,17 @@ An ESP32-powered, touch-enabled motorcycle dashboard that decodes CAN bus teleme
   | `battery_voltage`  | Electrical system voltage (V)      |
 
 - Errors in storage or OTA flows return `false`/`std::nullopt`, enabling the caller to surface meaningful messages without leaking sensitive information.
+- `AuditLogger` captures every CAN command (enqueue and decode) alongside software error codes for compliance-ready traceability.
+
+	| Column          | Description                                      |
+	| --------------- | ------------------------------------------------ |
+	| `timestamp_ms`  | Millisecond-resolution clock or frame timestamp  |
+	| `event_type`    | `CAN_COMMAND` or `SOFTWARE_ERROR`                |
+	| `source`        | Module responsible for the event                 |
+	| `identifier`    | CAN ID (hex) or software error code              |
+	| `payload`       | Space-delimited CAN payload bytes (if available) |
+	| `message`       | Contextual message (e.g., DLC, failure reason)   |
+- Application metadata from `.env` is parsed at startup; warnings are persisted to the audit CSV and defaults backfill any missing keys.
 
 ## Security Considerations
 - No secrets are stored in source control; configure Wi-Fi credentials via secure ESP-IDF partition or environment variables.
@@ -121,13 +173,13 @@ An ESP32-powered, touch-enabled motorcycle dashboard that decodes CAN bus teleme
 - **Test plan**: `Documentation/complience/test_plan.md`
 
 ## Contribution Guidelines
-1. Fork the repository and create a feature branch.
+1. Fork the repository and create a feature branch. The `main` branch is protected and direct pushes are blocked, so branch-based workflows are mandatory.
 2. Follow Clean Code principles—small, intention-revealing functions; avoid duplication; document intent when non-obvious.
 3. Maintain Clean Architecture boundaries (use cases depend on ports, not concrete drivers).
 4. Add or update unit tests under `tests/` ensuring >80% coverage on business logic.
 5. Run `ctest` and the CAN simulator (if applicable) before submitting a pull request.
 6. Update documentation and diagrams when behaviour or architecture changes.
-7. All pull requests must pass the CI workflow (`Code Review Checks` and `Build and Test`) before merge.
+7. All pull requests must pass the protected CI workflow (`Code Review Checks` and `Build and Test`); merges are blocked until every required check succeeds.
 
 ## Next Steps
 - Integrate hardware-specific CAN, display, and touch drivers using ESP-IDF drivers or vendor libraries.
