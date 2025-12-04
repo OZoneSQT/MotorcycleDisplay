@@ -1,10 +1,33 @@
-#requires -Version 7.0
 param(
 	[switch]$SkipVenv,
 	[switch]$Configure,
 	[ValidateSet('Debug', 'Release')]
 	[string]$BuildType = 'Debug'
 )
+
+if ($PSVersionTable.PSVersion.Major -lt 7) {
+	$pwsh = Get-Command pwsh -ErrorAction SilentlyContinue
+	if ($pwsh) {
+		Write-Host "[INFO] Relaunching Setup.ps1 with PowerShell 7 (pwsh)." -ForegroundColor Yellow
+		$pwshArgs = @('-NoLogo', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $MyInvocation.MyCommand.Path)
+		foreach ($entry in $PSBoundParameters.GetEnumerator()) {
+			$key = $entry.Key
+			$value = $entry.Value
+			if ($value -is [System.Management.Automation.SwitchParameter]) {
+				if ($value.IsPresent) {
+					$pwshArgs += "-$key"
+				}
+			} else {
+				$pwshArgs += "-$key"
+				$pwshArgs += $value
+			}
+		}
+		& $pwsh.Source @pwshArgs
+		exit $LASTEXITCODE
+	}
+	Write-Error 'PowerShell 7 (pwsh) is required to run Setup.ps1. Install PowerShell 7 and retry.'
+	exit 1
+}
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
@@ -23,6 +46,49 @@ function Write-Info {
 function Write-WarnMessage {
 	param([string]$Message)
 	Write-Warning $Message
+}
+
+function Import-VsDevEnvironment {
+	param([string]$VsInstallPath)
+
+	$vsDevCmd = Join-Path $VsInstallPath 'Common7/Tools/VsDevCmd.bat'
+	if (-not (Test-Path $vsDevCmd)) {
+		Write-WarnMessage "VsDevCmd not found at $vsDevCmd"
+		return
+	}
+
+	Write-Section 'Importing Visual Studio developer environment'
+	$cmdCommand = "`"$vsDevCmd`" -arch=amd64 -host_arch=amd64 >nul && set"
+	$envLines = & cmd.exe /c $cmdCommand
+	foreach ($line in $envLines) {
+		if (-not $line) {
+			continue
+		}
+		$separatorIndex = $line.IndexOf('=')
+		if ($separatorIndex -lt 1) {
+			continue
+		}
+		$name = $line.Substring(0, $separatorIndex)
+		$value = $line.Substring($separatorIndex + 1)
+		[System.Environment]::SetEnvironmentVariable($name, $value, 'Process')
+		Set-Item -Path Env:$name -Value $value | Out-Null
+	}
+}
+
+function EnsurePathEntry {
+	param([string]$Directory)
+
+	if (-not $Directory -or -not (Test-Path $Directory)) {
+		return
+	}
+
+	$current = [System.Environment]::GetEnvironmentVariable('PATH', 'Process')
+	$separator = ';'
+	$entries = $current -split [System.Text.RegularExpressions.Regex]::Escape($separator)
+	if ($entries -notcontains $Directory) {
+		[System.Environment]::SetEnvironmentVariable('PATH', "$Directory$separator$current", 'Process')
+		Write-Info "Added '$Directory' to PATH for this session."
+	}
 }
 
 function EnsureTool {
@@ -92,6 +158,28 @@ EnsureTool -CommandName 'python' -WingetId 'Python.Python.3.11' -FriendlyName 'P
 EnsureTool -CommandName 'cmake' -WingetId 'Kitware.CMake' -FriendlyName 'CMake'
 EnsureTool -CommandName 'ninja' -WingetId 'Ninja-build.Ninja' -FriendlyName 'Ninja'
 
+$llvmBin = Join-Path ${env:ProgramFiles} 'LLVM\bin'
+EnsurePathEntry -Directory $llvmBin
+
+$vswherePath = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+if (Test-Path $vswherePath) {
+	$vsInstallPath = & $vswherePath -products * -latest -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath 2>$null | Select-Object -First 1
+	if ($vsInstallPath) {
+		Import-VsDevEnvironment -VsInstallPath $vsInstallPath
+		$clPath = & $vswherePath -products * -latest -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -find 'VC\Tools\MSVC\**\bin\Hostx64\x64\cl.exe' 2>$null | Select-Object -First 1
+		if ($clPath) {
+			EnsurePathEntry -Directory (Split-Path $clPath)
+		}
+	}
+}
+
+$clCompiler = Get-Command cl -ErrorAction SilentlyContinue
+$clangCompiler = Get-Command clang++ -ErrorAction SilentlyContinue
+
+if (-not $clCompiler -and -not $clangCompiler) {
+	Write-WarnMessage 'No C++ compiler detected on PATH. Install Visual Studio Build Tools (with the Desktop development with C++ workload) or LLVM clang, then rerun Setup.ps1.'
+}
+
 $python = Get-Command python -ErrorAction SilentlyContinue
 if (-not $python) {
 	throw 'Python is required but was not found. Install Python and rerun the setup.'
@@ -124,12 +212,21 @@ if (-not $SkipVenv) {
 }
 
 if ($Configure) {
+	$clCompiler = Get-Command cl -ErrorAction SilentlyContinue
+	$clangCompiler = Get-Command clang++ -ErrorAction SilentlyContinue
+	if (-not $clCompiler -and -not $clangCompiler) {
+		throw 'No C++ compiler found. Install Visual Studio Build Tools (C++ workload) or LLVM clang and ensure it is on PATH, then rerun with -Configure.'
+	}
 	Write-Section "Configuring CMake project"
 	$buildDir = Join-Path $repoRoot 'build'
 	if (-not (Test-Path $buildDir)) {
 		New-Item -ItemType Directory -Path $buildDir | Out-Null
 	}
-	Invoke-CommandChecked -FilePath 'cmake' -Arguments @('-S', '.', '-B', 'build', '-G', 'Ninja', "-DCMAKE_BUILD_TYPE=$BuildType") -FriendlyName 'cmake configure'
+	$cmakeArgs = @('-S', '.', '-B', 'build', '-G', 'Ninja', "-DCMAKE_BUILD_TYPE=$BuildType")
+	if (-not $clCompiler -and $clangCompiler) {
+		$cmakeArgs += @('-DCMAKE_C_COMPILER=clang', '-DCMAKE_CXX_COMPILER=clang++')
+	}
+	Invoke-CommandChecked -FilePath 'cmake' -Arguments $cmakeArgs -FriendlyName 'cmake configure'
 }
 
 Write-Info 'Setup complete. To activate the virtual environment run: .\.venv\Scripts\Activate.ps1'

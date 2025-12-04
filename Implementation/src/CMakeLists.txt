@@ -30,10 +30,16 @@ target_compile_features(motorcycle_core PUBLIC cxx_std_20)
 
 target_compile_options(motorcycle_core
     PRIVATE
-        $<$<CXX_COMPILER_ID:MSVC>:/W4 /permissive->
+    $<$<CXX_COMPILER_ID:MSVC>:/W4 /permissive- /EHsc>
         $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-Wall -Wextra -Wpedantic>
 )
 
 add_executable(motorcycle_dashboard main.cpp)
 
 target_link_libraries(motorcycle_dashboard PRIVATE motorcycle_core)
+
+target_compile_options(motorcycle_dashboard
+    PRIVATE
+        $<$<CXX_COMPILER_ID:MSVC>:/W4 /permissive- /EHsc>
+        $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-Wall -Wextra -Wpedantic>
+)

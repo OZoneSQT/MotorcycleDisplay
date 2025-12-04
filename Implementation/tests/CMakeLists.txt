@@ -18,7 +18,7 @@ target_compile_features(motorcycle_tests PRIVATE cxx_std_20)
 
 target_compile_options(motorcycle_tests
     PRIVATE
-        $<$<CXX_COMPILER_ID:MSVC>:/W4 /permissive->
+    $<$<CXX_COMPILER_ID:MSVC>:/W4 /permissive- /EHsc>
         $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-Wall -Wextra -Wpedantic>
 )
 

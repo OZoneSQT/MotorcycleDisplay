@@ -16,53 +16,65 @@ An ESP32-powered, touch-enabled motorcycle dashboard that decodes CAN bus teleme
 - microSD or SPI flash partition for persistent logs and manuals.
 
 ## Software Stack
-- Language: C++20 (ESP-IDF or desktop simulation build via CMake).
+- Language: C++23 (ESP-IDF or desktop simulation build via CMake).
 - Build system: CMake 3.20+.
-- Optional host tools: Python 3.10+, `python-can`, `rich` (see `requirements.txt`).
+- Optional host tools: Python 3.11, `python-can`, `rich`, and a C++23 toolchain (Visual Studio Build Tools or LLVM clang).
 
 ## Repository Layout
-- `src/` and `include/`: Clean Architecture layers (entities, use cases, controllers, drivers, UI, simulation digital twin).
-- `data/`: Runtime assets such as manuals and OTA manifests.
-- `doc/`: Comprehensive documentation (design diagrams, user manual, test plan, API notes).
-- `tests/`: Unit tests for core business logic.
-- `tools/util/can_simulator.py`: Host-side CAN traffic generator.
+- `Implementation/`: Build-ready source tree.
+  - `src/` and `include/`: Clean Architecture layers (entities, use cases, controllers, drivers, UI, simulation digital twin).
+  - `tests/`: Unit and integration coverage for core business logic and the digital twin.
+  - `tools/`: CI utilities, build helpers, deployment scripts, and simulators (e.g., `tools/util/can_simulator.py`).
+  - `data/`: Runtime assets such as manuals, CSV logs, and OTA manifests.
+  - `design/`: Lightweight developer notes that complement the main documentation shard.
+- `Documentation/`: Comprehensive references (design diagrams, compliance records, user manuals, API notes).
+- `Commercial/` & `Maintenance/`: Business and support collateral retained alongside the source tree.
 
 ## Setup Instructions
-1. **Clone and configure ESP-IDF (hardware build)**
-	- Follow the ESP-IDF getting started guide for Windows PowerShell.
-	- Ensure `idf.py` and the Xtensa toolchain are available in your `PATH`.
-2. **Install host dependencies**
+1. **Run the provisioning script (PowerShell 7 required)**
 	```powershell
-	python -m venv .venv
-	.\.venv\Scripts\Activate.ps1
-	pip install -r requirements.txt
+	.\Implementation\Run_Setup.cmd -Configure -BuildType Debug
 	```
-3. **Configure CMake build (simulation on host PC)**
+	The script bootstraps Python 3.11, CMake, Ninja, and a virtual environment at `Implementation\.venv`. If no C++ compiler is detected, it will prompt you to install Visual Studio Build Tools (C++ workload) or LLVM clang before continuing.
+	Common compiler options:
+	- Visual Studio Build Tools: `winget install --id Microsoft.VisualStudio.2022.BuildTools --override "--quiet --add Microsoft.VisualStudio.Workload.VCTools" --scope user`
+	- LLVM clang toolchain: `winget install --id LLVM.LLVM --scope user`
+2. **Activate the virtual environment when developing**
 	```powershell
-	cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
-	cmake --build build
+	.\Implementation\.venv\Scripts\Activate.ps1
 	```
-4. **Configure ESP-IDF build (firmware)**
-	- Adapt `src/CMakeLists.txt` to the ESP-IDF component model or wrap it in an ESP-IDF component as required.
-	- Use `idf.py menuconfig` to set CAN, display, storage, and OTA parameters.
+3. **Build and test (Windows/MSVC)**
+	Use the setup script in the same PowerShell 7 session before invoking CMake so the Visual Studio developer environment is loaded. After the initial provisioning you can skip virtual-environment work with `-SkipVenv`.
+	```powershell
+	# From the repository root inside PowerShell 7
+	.\Implementation\Setup.ps1 -SkipVenv
+	cmake --build build --target motorcycle_dashboard
+	ctest --test-dir build --output-on-failure
+	```
+	If you prefer LLVM clang, add `-DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++` to the initial configure command and run future builds inside the same PowerShell session.
+4. **Configure ESP-IDF (hardware firmware)**
+	- Mirror the `Implementation/src` layout inside an ESP-IDF component or extend the existing CMake files.
+	- Use `idf.py menuconfig` to set CAN, display, storage, and OTA parameters, ensuring secrets remain outside source control.
 
 ## Usage Examples
 - **Run desktop simulator**
   ```powershell
-  cmake --build build --target motorcycle_dashboard
-  .\build\motorcycle_dashboard.exe
+	.\Implementation\Setup.ps1 -SkipVenv
+	cmake --build build --target motorcycle_dashboard
+	.\build\motorcycle_dashboard.exe
   ```
 - **Simulate CAN traffic**
   ```powershell
-  python tools/util/can_simulator.py --duration 120 --interval 0.5 --csv data/logs/simulator_log.csv
+	python Implementation/tools/util/can_simulator.py --duration 120 --interval 0.5 --csv Implementation/data/logs/simulator_log.csv
   ```
-- **View logs**: Inspect `data/logs/vehicle_log.csv` for live data or the simulator log for synthetic data.
-- **Display manual**: Swipe right on the dashboard (or inspect `data/manual/dashboard_manual.md`).
+- **View logs**: Inspect `Implementation/data/logs/vehicle_log.csv` for live data or the simulator log for synthetic data.
+- **Display manual**: Swipe right on the dashboard (or inspect `Implementation/data/manual/dashboard_manual.md`).
 
 ## Digital Twin and Simulator Workflow
 
 - **Run the digital twin integration test**
-	```powershell
+ 	```powershell
+	.\Implementation\Setup.ps1 -SkipVenv
 	cmake --build build --target motorcycle_tests
 	ctest --test-dir build --tests-regex motorcycle_tests --output-on-failure
 	```
@@ -74,6 +86,7 @@ An ESP32-powered, touch-enabled motorcycle dashboard that decodes CAN bus teleme
 1. Configure the build directory with tests enabled (default).
 2. Build and run tests (unit and digital twin integration):
 	```powershell
+	.\Implementation\Setup.ps1 -SkipVenv
 	cmake --build build --target motorcycle_tests
 	ctest --test-dir build
 	```
@@ -102,10 +115,10 @@ An ESP32-powered, touch-enabled motorcycle dashboard that decodes CAN bus teleme
 - Avoid logging sensitive rider information; CSV logs focus on vehicle telemetry only.
 
 ## Documentation
-- **User manual**: `doc/user/dashboard_manual.md`
-- **Architecture & diagrams**: `doc/design/diagrams/architecture.md`
-- **Module overview**: `doc/api/module_overview.md`
-- **Test plan**: `doc/complience/test_plan.md`
+- **User manual**: `Documentation/user/dashboard_manual.md`
+- **Architecture & diagrams**: `Documentation/design/diagrams/architecture.md`
+- **Module overview**: `Documentation/api/module_overview.md`
+- **Test plan**: `Documentation/complience/test_plan.md`
 
 ## Contribution Guidelines
 1. Fork the repository and create a feature branch.

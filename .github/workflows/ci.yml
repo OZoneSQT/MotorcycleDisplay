@@ -9,6 +9,9 @@ jobs:
   code-review:
     name: Code Review Checks
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: Implementation
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -20,6 +23,9 @@ jobs:
     runs-on: ubuntu-latest
     env:
       BUILD_DIR: build/linux-release
+    defaults:
+      run:
+        working-directory: Implementation
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
