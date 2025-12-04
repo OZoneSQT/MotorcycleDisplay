@@ -184,5 +184,3 @@ Purpose: provide immediate, actionable guidance for AI coding agents working in 
 - Run Unit tests
 
 Clean up the copilot-instructions.md file in the .github directory by removing all HTML comments.
-
-If anything in this summary is unclear or you'd like more examples (e.g., a sample PR checklist or a small runnable example that exercises `Service/main.py`), tell me which section to expand and I'll iterate.
