@@ -503,7 +503,8 @@ void TwinSimulatorApp::onPaint() {
     const auto& stApp = m_twin.stAppMetadata();
 
     std::vector<std::wstring> vLines;
-    vLines.push_back(toWide(stApp.sAppName + " v" + stApp.sVersion + " (" + stApp.sBuildId + ")"));
+    const std::string sHeader = stApp.sAppName + " v" + stApp.sVersion + " (" + stApp.sBuildId + ")";
+    vLines.push_back(toWide(sHeader));
     vLines.push_back(toWide(stApp.sCopyright));
     vLines.push_back(L"Motorcycle Digital Twin Simulator");
     vLines.push_back(L"--------------------------------------------------");
@@ -532,7 +533,9 @@ void TwinSimulatorApp::onPaint() {
     }
 
     vLines.push_back(L"");
-    vLines.push_back(L"Controls: ↑/↓ speed, W/S rpm, E/D throttle, R/F temp, T/G battery, A ABS toggle, M touch tap, Z reset, P panel, Esc exit");
+    vLines.push_back(
+        L"Controls: ↑/↓ speed, W/S rpm, E/D throttle, R/F temp, T/G battery, "
+        L"A ABS toggle, M touch tap, Z reset, P panel, Esc exit");
 
     if (optManual.has_value()) {
         vLines.push_back(L"");
@@ -544,7 +547,8 @@ void TwinSimulatorApp::onPaint() {
         if (!optManual->vChildren.empty()) {
             vLines.push_back(L"Topics:");
             for (const auto& stChild : optManual->vChildren) {
-                vLines.push_back(L" - " + toWide(stChild.sTitle) + L" [" + toWide(stChild.sId) + L"]");
+                const std::wstring sTopic = L" - " + toWide(stChild.sTitle) + L" [" + toWide(stChild.sId) + L"]";
+                vLines.push_back(sTopic);
             }
             std::wstring sNav = L"Use Back=";
             sNav += optManual->bCanGoBack ? L"Yes" : L"No";
@@ -629,8 +633,19 @@ bool ControlPanelWindow::create(HINSTANCE hInstance) {
     }
 
     m_hInstance = hInstance;
-    m_hwnd = CreateWindowExW(0, kControlWindowClass, L"Twin Control Panel", WS_OVERLAPPEDWINDOW,
-                             CW_USEDEFAULT, CW_USEDEFAULT, kPanelWidth, kPanelHeight, nullptr, nullptr, hInstance, this);
+    m_hwnd = CreateWindowExW(
+        0,
+        kControlWindowClass,
+        L"Twin Control Panel",
+        WS_OVERLAPPEDWINDOW,
+        CW_USEDEFAULT,
+        CW_USEDEFAULT,
+        kPanelWidth,
+        kPanelHeight,
+        nullptr,
+        nullptr,
+        hInstance,
+        this);
     if (!m_hwnd) {
         return false;
     }
@@ -658,7 +673,11 @@ void ControlPanelWindow::updateFromInputs(const simulation::DashboardDigitalTwin
     setEditValue(m_hwndThrottleEdit, stInputs.fThrottlePercent, 1);
     setEditValue(m_hwndTempEdit, stInputs.fEngineTempC, 1);
     setEditValue(m_hwndBatteryEdit, stInputs.fBatteryVoltage, 2);
-    SendMessageW(m_hwndAbsCheck, BM_SETCHECK, stInputs.bAbsActive ? BST_CHECKED : BST_UNCHECKED, 0);
+    SendMessageW(
+        m_hwndAbsCheck,
+        BM_SETCHECK,
+        stInputs.bAbsActive ? BST_CHECKED : BST_UNCHECKED,
+        0);
     m_bUpdating = false;
 }
 
@@ -675,15 +694,24 @@ void ControlPanelWindow::updateAlerts(const std::vector<logic::entities::AlertSt
             continue;
         }
 
-        const std::wstring sLine = composeAlertLine(toWide(stAlert.stMetadata.sMessage),
-                                stAlert.stMetadata.eSeverity == logic::entities::AlertSeverity::kCritical);
-        SendMessageW(m_hwndAlertsList, LB_ADDSTRING, 0, reinterpret_cast<LPARAM>(sLine.c_str()));
+        const std::wstring sLine = composeAlertLine(
+            toWide(stAlert.stMetadata.sMessage),
+            stAlert.stMetadata.eSeverity == logic::entities::AlertSeverity::kCritical);
+        SendMessageW(
+            m_hwndAlertsList,
+            LB_ADDSTRING,
+            0,
+            reinterpret_cast<LPARAM>(sLine.c_str()));
         bAdded = true;
     }
 
     if (!bAdded) {
         static const wchar_t* pszNone = L"No active alerts";
-        SendMessageW(m_hwndAlertsList, LB_ADDSTRING, 0, reinterpret_cast<LPARAM>(pszNone));
+        SendMessageW(
+            m_hwndAlertsList,
+            LB_ADDSTRING,
+            0,
+            reinterpret_cast<LPARAM>(pszNone));
     }
 }
 
@@ -723,12 +751,35 @@ void ControlPanelWindow::createControls() {
     int iTop = 16;
 
     auto createLabel = [&](const wchar_t* pszText) {
-        CreateWindowExW(0, L"STATIC", pszText, WS_CHILD | WS_VISIBLE, iLeft, iTop, iLabelWidth, 20, m_hwnd, nullptr, m_hInstance, nullptr);
+        CreateWindowExW(
+            0,
+            L"STATIC",
+            pszText,
+            WS_CHILD | WS_VISIBLE,
+            iLeft,
+            iTop,
+            iLabelWidth,
+            20,
+            m_hwnd,
+            nullptr,
+            m_hInstance,
+            nullptr);
     };
 
     auto createEdit = [&](WORD wId) {
-        return CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"", WS_CHILD | WS_VISIBLE | ES_AUTOHSCROLL | WS_TABSTOP,
-                               iLeft + iLabelWidth, iTop - 2, iEditWidth, 24, m_hwnd, reinterpret_cast<HMENU>(static_cast<INT_PTR>(wId)), m_hInstance, nullptr);
+        return CreateWindowExW(
+            WS_EX_CLIENTEDGE,
+            L"EDIT",
+            L"",
+            WS_CHILD | WS_VISIBLE | ES_AUTOHSCROLL | WS_TABSTOP,
+            iLeft + iLabelWidth,
+            iTop - 2,
+            iEditWidth,
+            24,
+            m_hwnd,
+            reinterpret_cast<HMENU>(static_cast<INT_PTR>(wId)),
+            m_hInstance,
+            nullptr);
     };
 
     createLabel(L"Speed (km/h)");
@@ -751,40 +802,164 @@ void ControlPanelWindow::createControls() {
     m_hwndBatteryEdit = createEdit(kIdBatteryEdit);
     iTop += 32;
 
-    m_hwndAbsCheck = CreateWindowExW(0, L"BUTTON", L"ABS Active", WS_CHILD | WS_VISIBLE | BS_AUTOCHECKBOX | WS_TABSTOP,
-                                     iLeft, iTop, iLabelWidth + iEditWidth, 24, m_hwnd, reinterpret_cast<HMENU>(static_cast<INT_PTR>(kIdAbsCheck)), m_hInstance, nullptr);
+    m_hwndAbsCheck = CreateWindowExW(
+        0,
+        L"BUTTON",
+        L"ABS Active",
+        WS_CHILD | WS_VISIBLE | BS_AUTOCHECKBOX | WS_TABSTOP,
+        iLeft,
+        iTop,
+        iLabelWidth + iEditWidth,
+        24,
+        m_hwnd,
+        reinterpret_cast<HMENU>(static_cast<INT_PTR>(kIdAbsCheck)),
+        m_hInstance,
+        nullptr);
     iTop += 36;
 
-    m_hwndApplyButton = CreateWindowExW(0, L"BUTTON", L"Apply", WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_DEFPUSHBUTTON,
-                                        iLeft, iTop, 90, 26, m_hwnd, reinterpret_cast<HMENU>(static_cast<INT_PTR>(kIdApplyButton)), m_hInstance, nullptr);
-    m_hwndResetButton = CreateWindowExW(0, L"BUTTON", L"Reset", WS_CHILD | WS_VISIBLE | WS_TABSTOP,
-                                        iLeft + 100, iTop, 90, 26, m_hwnd, reinterpret_cast<HMENU>(static_cast<INT_PTR>(kIdResetButton)), m_hInstance, nullptr);
-    m_hwndTouchButton = CreateWindowExW(0, L"BUTTON", L"Touch Tap", WS_CHILD | WS_VISIBLE | WS_TABSTOP,
-                                        iLeft + 200, iTop, 90, 26, m_hwnd, reinterpret_cast<HMENU>(static_cast<INT_PTR>(kIdTouchButton)), m_hInstance, nullptr);
+    m_hwndApplyButton = CreateWindowExW(
+        0,
+        L"BUTTON",
+        L"Apply",
+        WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_DEFPUSHBUTTON,
+        iLeft,
+        iTop,
+        90,
+        26,
+        m_hwnd,
+        reinterpret_cast<HMENU>(static_cast<INT_PTR>(kIdApplyButton)),
+        m_hInstance,
+        nullptr);
+    m_hwndResetButton = CreateWindowExW(
+        0,
+        L"BUTTON",
+        L"Reset",
+        WS_CHILD | WS_VISIBLE | WS_TABSTOP,
+        iLeft + 100,
+        iTop,
+        90,
+        26,
+        m_hwnd,
+        reinterpret_cast<HMENU>(static_cast<INT_PTR>(kIdResetButton)),
+        m_hInstance,
+        nullptr);
+    m_hwndTouchButton = CreateWindowExW(
+        0,
+        L"BUTTON",
+        L"Touch Tap",
+        WS_CHILD | WS_VISIBLE | WS_TABSTOP,
+        iLeft + 200,
+        iTop,
+        90,
+        26,
+        m_hwnd,
+        reinterpret_cast<HMENU>(static_cast<INT_PTR>(kIdTouchButton)),
+        m_hInstance,
+        nullptr);
     iTop += 40;
 
-    CreateWindowExW(0, L"STATIC", L"Active alerts", WS_CHILD | WS_VISIBLE, iLeft, iTop, iLabelWidth + iEditWidth, 20, m_hwnd, nullptr, m_hInstance, nullptr);
+    CreateWindowExW(
+        0,
+        L"STATIC",
+        L"Active alerts",
+        WS_CHILD | WS_VISIBLE,
+        iLeft,
+        iTop,
+        iLabelWidth + iEditWidth,
+        20,
+        m_hwnd,
+        nullptr,
+        m_hInstance,
+        nullptr);
     iTop += 24;
 
-    m_hwndAlertsList = CreateWindowExW(WS_EX_CLIENTEDGE, L"LISTBOX", L"", WS_CHILD | WS_VISIBLE | WS_VSCROLL | LBS_NOTIFY,
-                                       iLeft, iTop, iLabelWidth + iEditWidth + 30, 120, m_hwnd, nullptr, m_hInstance, nullptr);
+    m_hwndAlertsList = CreateWindowExW(
+        WS_EX_CLIENTEDGE,
+        L"LISTBOX",
+        L"",
+        WS_CHILD | WS_VISIBLE | WS_VSCROLL | LBS_NOTIFY,
+        iLeft,
+        iTop,
+        iLabelWidth + iEditWidth + 30,
+        120,
+        m_hwnd,
+        nullptr,
+        m_hInstance,
+        nullptr);
 
     iTop += 136;
 
-    CreateWindowExW(0, L"STATIC", L"CAN ID (hex/dec)", WS_CHILD | WS_VISIBLE, iLeft, iTop, iLabelWidth + iEditWidth, 20, m_hwnd, nullptr, m_hInstance, nullptr);
+    CreateWindowExW(
+        0,
+        L"STATIC",
+        L"CAN ID (hex/dec)",
+        WS_CHILD | WS_VISIBLE,
+        iLeft,
+        iTop,
+        iLabelWidth + iEditWidth,
+        20,
+        m_hwnd,
+        nullptr,
+        m_hInstance,
+        nullptr);
     iTop += 22;
-    m_hwndCanIdEdit = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"", WS_CHILD | WS_VISIBLE | ES_AUTOHSCROLL | WS_TABSTOP,
-                                      iLeft, iTop, iLabelWidth + iEditWidth + 30, 24, m_hwnd, reinterpret_cast<HMENU>(static_cast<INT_PTR>(kIdCanIdEdit)), m_hInstance, nullptr);
+    m_hwndCanIdEdit = CreateWindowExW(
+        WS_EX_CLIENTEDGE,
+        L"EDIT",
+        L"",
+        WS_CHILD | WS_VISIBLE | ES_AUTOHSCROLL | WS_TABSTOP,
+        iLeft,
+        iTop,
+        iLabelWidth + iEditWidth + 30,
+        24,
+        m_hwnd,
+        reinterpret_cast<HMENU>(static_cast<INT_PTR>(kIdCanIdEdit)),
+        m_hInstance,
+        nullptr);
 
     iTop += 32;
-    CreateWindowExW(0, L"STATIC", L"Payload bytes (hex)", WS_CHILD | WS_VISIBLE, iLeft, iTop, iLabelWidth + iEditWidth, 20, m_hwnd, nullptr, m_hInstance, nullptr);
+    CreateWindowExW(
+        0,
+        L"STATIC",
+        L"Payload bytes (hex)",
+        WS_CHILD | WS_VISIBLE,
+        iLeft,
+        iTop,
+        iLabelWidth + iEditWidth,
+        20,
+        m_hwnd,
+        nullptr,
+        m_hInstance,
+        nullptr);
     iTop += 22;
-    m_hwndCanPayloadEdit = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"", WS_CHILD | WS_VISIBLE | ES_AUTOHSCROLL | WS_TABSTOP,
-                                           iLeft, iTop, iLabelWidth + iEditWidth + 30, 24, m_hwnd, reinterpret_cast<HMENU>(static_cast<INT_PTR>(kIdCanPayloadEdit)), m_hInstance, nullptr);
+    m_hwndCanPayloadEdit = CreateWindowExW(
+        WS_EX_CLIENTEDGE,
+        L"EDIT",
+        L"",
+        WS_CHILD | WS_VISIBLE | ES_AUTOHSCROLL | WS_TABSTOP,
+        iLeft,
+        iTop,
+        iLabelWidth + iEditWidth + 30,
+        24,
+        m_hwnd,
+        reinterpret_cast<HMENU>(static_cast<INT_PTR>(kIdCanPayloadEdit)),
+        m_hInstance,
+        nullptr);
 
     iTop += 36;
-    m_hwndSendCanButton = CreateWindowExW(0, L"BUTTON", L"Send CAN Frame", WS_CHILD | WS_VISIBLE | WS_TABSTOP,
-                                          iLeft, iTop, 160, 26, m_hwnd, reinterpret_cast<HMENU>(static_cast<INT_PTR>(kIdSendCanButton)), m_hInstance, nullptr);
+    m_hwndSendCanButton = CreateWindowExW(
+        0,
+        L"BUTTON",
+        L"Send CAN Frame",
+        WS_CHILD | WS_VISIBLE | WS_TABSTOP,
+        iLeft,
+        iTop,
+        160,
+        26,
+        m_hwnd,
+        reinterpret_cast<HMENU>(static_cast<INT_PTR>(kIdSendCanButton)),
+        m_hInstance,
+        nullptr);
 }
 
 void ControlPanelWindow::onCommand(WPARAM wParam, LPARAM) {
@@ -823,7 +998,8 @@ void ControlPanelWindow::handleApply() {
     const float fThrottle = readFloat(m_hwndThrottleEdit, stInputs.fThrottlePercent);
     const float fTemp = readFloat(m_hwndTempEdit, stInputs.fEngineTempC);
     const float fBattery = readFloat(m_hwndBatteryEdit, stInputs.fBatteryVoltage);
-    const bool bAbsActive = SendMessageW(m_hwndAbsCheck, BM_GETCHECK, 0, 0) == BST_CHECKED;
+    const bool bAbsActive =
+        SendMessageW(m_hwndAbsCheck, BM_GETCHECK, 0, 0) == BST_CHECKED;
     m_rApp.onPanelApply(fSpeed, fRpm, fThrottle, fTemp, fBattery, bAbsActive);
 }
 
@@ -840,7 +1016,8 @@ void ControlPanelWindow::handleAbsToggle() {
         return;
     }
 
-    const bool bAbsActive = SendMessageW(m_hwndAbsCheck, BM_GETCHECK, 0, 0) == BST_CHECKED;
+    const bool bAbsActive =
+        SendMessageW(m_hwndAbsCheck, BM_GETCHECK, 0, 0) == BST_CHECKED;
     m_rApp.onPanelAbsToggled(bAbsActive);
 }
 
@@ -848,7 +1025,11 @@ void ControlPanelWindow::handleSendCan() {
     const std::wstring sIdText = readText(m_hwndCanIdEdit);
     const auto optId = parseCanId(sIdText);
     if (!optId.has_value()) {
-        MessageBoxW(m_hwnd, L"Enter a valid CAN identifier (0x0 - 0x1FFFFFFF).", L"Invalid CAN ID", MB_ICONERROR | MB_OK);
+        MessageBoxW(
+            m_hwnd,
+            L"Enter a valid CAN identifier (0x0 - 0x1FFFFFFF).",
+            L"Invalid CAN ID",
+            MB_ICONERROR | MB_OK);
         return;
     }
 
@@ -858,13 +1039,21 @@ void ControlPanelWindow::handleSendCan() {
     std::vector<std::uint8_t> vBytes;
     while (ss >> sToken) {
         if (vBytes.size() >= 8U) {
-            MessageBoxW(m_hwnd, L"CAN payload may include up to 8 bytes.", L"Payload Too Long", MB_ICONERROR | MB_OK);
+            MessageBoxW(
+                m_hwnd,
+                L"CAN payload may include up to 8 bytes.",
+                L"Payload Too Long",
+                MB_ICONERROR | MB_OK);
             return;
         }
 
         const auto optByte = parseByte(sToken);
         if (!optByte.has_value()) {
-            MessageBoxW(m_hwnd, L"Provide payload bytes as hex values (e.g., 0A FF 2C).", L"Invalid Payload", MB_ICONERROR | MB_OK);
+            MessageBoxW(
+                m_hwnd,
+                L"Provide payload bytes as hex values (e.g., 0A FF 2C).",
+                L"Invalid Payload",
+                MB_ICONERROR | MB_OK);
             return;
         }
 
